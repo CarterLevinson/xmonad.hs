@@ -3,163 +3,127 @@ module Main (main) where
 import Xmobar
 
 import Control.Monad
-
+import Data.Char
+import Data.List
 import System.Console.GetOpt
-import System.IO
-import System.Exit
 import System.Environment
+import System.Exit
+import System.IO
+import Text.Printf
 
-type ScreenId = Int
+-- config is currently combo of template string and screen id
 
-data Conf = Main | Alt
+data Preset = Main | Alt
+    deriving (Show, Read, Eq, Enum)
 
-data Flags = Flags { optConf   :: Conf
-                   , optScreen :: Int
-                   , optHelp   :: Bool
-                   }
-
-mainFlags, altFlags :: Flags
-mainFlags  = Flags { optConf = Main
-                   , optScreen = 0
-                   , optHelp = False
-                   }
-
-altFlags   = Flags { optConf = Alt
-                   , optScreen = 1
-                   ,  optHelp = False
-                   }
+data Options =
+  Options
+    { optPreset   :: Preset
+    , optScreen   :: Int
+    , optTop      :: Bool
+    , optBottom   :: Bool
+    , optAlpha    :: Int
+    }
+    deriving (Show, Read)
 
 
-mainTemplate, altTemplate :: ScreenId -> String
-mainTemplate sc = let log = "%_XMONAD_LOG_" ++ show sc ++ "%"
-                   in "<icon=arch-linux-2.xpm/> " ++ log ++ " }{\
-                        \| %arch% CPU: %cpu% %cpufreq% %multicoretemp% \
-                        \| %memory% %swap% | %wlp8s0% | %clock% %uptime% \
-                        \| %date% | %time% | %lambda% "
 
-altTemplate sc = let log = "%_XMONAD_LOG_" ++ show sc ++ "%"
-                  in "<icon=arch-linux-2.xpm/> " ++ log ++ " }{\
-                       \| %bell% %updates% | %KMDW% | %time% | %lambda% "
+makeMainTemplate, makeAltTemplate :: Int -> String
+makeMainTemplate sc = let log   = "%_XMONAD_LOG_" ++ show sc ++ "%"
+                          lIcon = "<icon=arch-linux-2.xpm/>"
+                          rIcon = ""
+                       in lIcon ++ " " ++ log ++ " }{\
+                           \| %arch% CPU: %cpu% %cpufreq% %multicoretemp% \
+                           \| %memory% %swap% | %wlp8s0% | %clock% %uptime% \
+                           \| %date% | %time% " ++ rIcon
 
-help :: [String]
-help = []
-
-temp :: String
-temp =
-  "<icon=arch-linux-2.xpm/> %_XMONAD_LOG_0% }{\
-    \| %arch% CPU: %cpu% %cpufreq% %multicoretemp% | %memory% %swap% \
-    \| %wlp8s0% | %clock% %uptime% | %date% | %time% | %lambda% "
-
-baseCommands :: [Runnable]
-baseCommands =
-  [ Run $ Cpu
-      [ "-t", "<total>%"
-      , "-H", "75"
-      , "-L", "25"
-      , "-h", "red"
-      , "-l", "green"
-      , "-n", "white"
-      ]
-      10
-  , Run $ CpuFreq
-      [ "-t", "<avg>GHz"
-      , "-H", "4"
-      , "-L", "1"
-      , "-h", "red"
-      , "-l", "green"
-      , "-n", "white"
-      ]
-      50
-  , Run $ MultiCoreTemp
-      [ "-t", "<avg>°C" --, "Temp: <avgpc>%"
-      , "-L", "60"
-      , "-H" , "80"
-      , "-l", "green"
-      , "-n", "white"
-      , "-h", "red"
-      , "--"
-      , "--mintemp", "20"
-      , "--maxtemp", "100"
-      ]
-      50
-  , Run $ Weather
-      "KMDW"
-      [ "--template"
-      , "<fn=2>\xFA92</fn> Chicago: <tempC>°C <fn=2>\xF2C7</fn>"
-      , "-L", "0"
-      , "-H", "25"
-      , "-l", "lightblue"
-      , "-n", "#F8F8F2"
-      , "-h", "red"
-      ]
-      36000
-
-  , Run $ Network
-      "wlp8s0" -- wifi
-      ["-t", "<fn=1>\xF0AA</fn> <tx>KB/s <fn=1>\xF0AB</fn> <rx>KB/s"]
-      20
-  , Run $ Network
-      "en0s31f6" -- ethernet
-      ["-t", "<fn=1>\xF0AA</fn> <tx>KB/s <fn=1>\xF0AB</fn> <rx>KB/s"]
-      20
-  , Run $ Memory
-      ["-t", "<fn=1>\xF233</fn> Mem: <used>M (<usedratio>%)"]
-      10
-  , Run $ Swap
-      ["-t", "<fn=1>\xF9E1</fn> Swap: <usedratio>%"]
-      10
-  , Run $ Uptime
-      ["-t", "Up: <days>d <hours>h"]
-      360
-  , Run $ Date
-      "<fn=1>\xF273</fn> %a %m-%d-%Y"
-      "date"
-      10
-  , Run $ Date
-      "<fc=#FFFFFF>%H:%M</fc>"
-      "time"
-      10
-  ]
-
-shellCommands :: [Runnable]
-shellCommands =
-  [ Run $ Com "echo"     ["<fn=1>\xF303</fn>"]          "arch"    36000
-  , Run $ Com "echo"     ["<fn=1>\xE22C</fn>"]          "pi"      36000
-  , Run $ Com "echo"     ["<fn=1>\xFB26</fn>"]          "lambda"  36000
-  , Run $ Com "echo"     ["<fn=1>\xF64F</fn>"]          "clock"   36000
-
-  , Run $ Com "uname"    ["-r"]                         "kernel"  36000
-  , Run $ Com "userhost" []                             "host"    36000
-
-  , Run $ Com "sh"       ["-c", "checkupdates | wc -l"] "updates" 3600
-  ]
-
-
-logCommand :: ScreenId -> [Runnable]
-logCommand sc = let log = "_XMONAD_LOG_" ++ show sc
-                 in [ Run $ XPropertyLog log ]
+makeAltTemplate sc = let log   = "%_XMONAD_LOG_" ++ show sc ++ "%"
+                         lIcon = "<icon=arch-linux-2.xpm/>"
+                         rIcon = ""
+                      in lIcon ++ " " ++ log ++ " }{\
+                          \| %bell% %updates% \
+                          \| %KMDW% | %time% " ++ rIcon
 
 config :: Config
 config =
-    defaultConfig
-      { overrideRedirect = False
-      , border           = NoBorder
-      , bgColor          = "#000000"
-      , fgColor          = "#646464"
-      , borderColor      = "#F8F8F2"
-      , alpha            = 255
-      , iconRoot         = "/home/carterlevo/.config/xmonad/xpm"
-      , font             = "xft:Anonymous Pro:weight=bold:pixelsize=14:antialias=true"
-      , additionalFonts  =
-          [ "xft:Symbols Nerd Font:pixelsize=14:antialaias=true:hinting=true" ]
-      -- , position         = OnScreen 0 (TopW L 100)
-      -- , commands = baseCommands
-      -- , template = defaultTemplate
-      }
+  defaultConfig
+    { overrideRedirect = False
+    , border           = NoBorder
+    , alpha            = 255      -- complete opacity
+    , bgColor          = "#000000"
+    , fgColor          = "#646464"
+    , borderColor      = "#F8F8F2"
+    , iconRoot         = "/home/carterlevo/.config/xmonad/xpm"
+    , font             = makeBoldFont "Anonymous Pro" 14
+    , additionalFonts  = [ makeFont "Symbols Nerd Font" 14 ]
+    }
+
+options :: [OptDescr (Options -> IO Options)]
+options =
+    [ Option ['v'] ["version"]
+        (NoArg (\_ -> exitWithMsg "Version 0.01"))
+        "print the version number"
+    , Option ['l'] ["list"]
+        (NoArg (\_ -> exitWithMsg . unlines $ templates))
+        "list available preconfigured templates"
+    , Option ['h'] ["help"]
+        (NoArg (\_ -> usageInfoWithProgName >>= exitWithMsg))
+        "displays this help message"
+    , Option ['B'] ["bot"]
+        (NoArg (\opts -> return opts { optBottom = True}))
+        "place status bar on bottom of screen"
+    , Option ['T'] ["top"]
+        (NoArg (\opts -> return opts { optTop = True}))
+        "place status bar on top of screen"
+    , Option ['c'] ["config"]
+        (ReqArg (\arg opts -> return opts { optPreset = read arg }) "CONFIG")
+        "select preconfigured template"
+    , Option ['a'] ["alpha"]
+        (ReqArg (\arg opts -> return opts { optAlpha = read arg }) "OPACITY")
+        "select the opacity of the bar from [0,255]"
+    , Option ['x'] ["screen"]
+        (ReqArg (\arg opts -> return opts { optScreen = read arg }) "SCREEN")
+        "select the X screen to display status bar on"
+    ]
+    where
+        templates :: [String]
+        templates =
+          [ "The available preconfigured template strings are: "
+          , "1. 'Main'"
+          , "2. 'Alt'"
+          ]
+
+defaultOptions :: Options
+defaultOptions =
+  Options
+    { optPreset   = Main
+    , optScreen   = 0
+    , optAlpha    = 255
+    , optTop      = True
+    , optBottom   = False
+    }
+
+exitWithMsg :: String -> IO x
+exitWithMsg s = hPutStrLn stderr s >> exitSuccess
+
+exitWithUsage = usageInfoWithProgName >>= exitWithMsg
+
+usageInfoWithProgName :: IO String
+usageInfoWithProgName = do
+    prg <- getProgName
+    return (usageInfo prg options)
 
 
-main :: IO ()
-main = xmobar config { position = OnScreen 0 (TopW L 100)
-                     , commands = baseCommands ++ logCommand 0
-                     , template = mainTemplate 0
-                     }
+parseArgs = do
+    args <- getArgs
+    let (actions, nonOptions, errors) = getOpt RequireOrder options args
+    -- opts <- foldl (>>=) (return defaultOptions) actions
+    return (foldl (>>=) (return defaultOptions) actions
+    -- let screen = optScreen opts
+    --     preset = optPreset opts
+    -- return config { position = getXPosition screen True
+    --               , commands = baseCmds ++ logCmd screen
+    --               , template = getTemplateStr preset screen
+    --               }
+
+main = parseArgs >>= xmobar

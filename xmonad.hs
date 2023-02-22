@@ -53,16 +53,15 @@ import qualified XMonad.Layout.ToggleLayouts        as T
 import           XMonad.Layout.WindowArranger
 import           XMonad.Layout.WindowNavigation
 
-
 import           XMonad.Util.Dzen                   as DZ
 import           XMonad.Util.Dmenu                  as D
 import           XMonad.Util.EZConfig
-import           XMonad.Util.Paste                  (pasteSelection)
+import           XMonad.Util.NamedScratchpad
 import           XMonad.Util.Run                    (runInTerm)
 import           XMonad.Util.SpawnOnce              (spawnOnce)
+import           XMonad.Util.Paste                  (pasteSelection)
 import           XMonad.Util.Ungrab                 (unGrab)
-import           XMonad.Util.NamedScratchpad
-import           XMonad.Util.WorkspaceCompare
+import           XMonad.Util.WorkspaceCompare       (getSortByIndex)
 
 import           XMonad.Prompt.XMonad
 
@@ -94,35 +93,43 @@ dz :: String -> X ()
 dz = DZ.dzenConfig (timeout 10 >=> onCurr xScreen)
 
 dm :: MonadIO m => [String] -> [String] -> m String
-dm args = D.menuArgs "dmenu" (["-b", "-h", "20"] ++ args)
+dm args = D.menuArgs "dmenu" (dmenuDefArgs ++ args)
 
+dmenuWSPrompt :: [String]
+dmenuWSPrompt = ["-p", "Which workspace, master?"]
+
+dmenuDefArgs :: [String]
+dmenuDefArgs = ["-b", "-h", "20"]
 
 dmenuWS :: X WorkspaceId
-dmenuWS = getTagSortedWS >>= dm args
-    where
-        args :: [String]
-        args = ["-p", "Which workspace, master?"]
+dmenuWS = getTagSortedWS >>= dm dmenuWSPrompt
 
-getTagSortedWS :: X [String]
+getTagSortedWS :: X [WorkspaceId]
 getTagSortedWS = do
     ws   <- gets (W.workspaces . windowset)
     sort <- getSortByIndex
     return (map W.tag $ sort ws)
 
-
 selectWorkspace' :: X ()
 selectWorkspace' = do
-    s <- gets windowset
-    w <- dmenuWS
-    if W.tagMember w s
-       then windows $ W.greedyView w
-       else addWorkspace w
+    set <- gets windowset
+    ws  <- dmenuWS
+    if W.tagMember ws set
+       then windows $ W.greedyView ws
+       else addWorkspace ws
 
-
-withWorkspace' :: (WorkspaceId -> X ()) -> X()
+withWorkspace' :: (WorkspaceId -> X ()) -> X ()
 withWorkspace' job = do
+    set <- gets windowset
+    ws  <- dmenuWS
+    if W.tagMember ws set
+       then job ws
+       else addHiddenWorkspace ws >> job ws
+
+withWorkspace'' :: (WorkspaceId -> X ()) -> X()
+withWorkspace'' job = do
     ts <- getTagSortedWS
-    ws <- dmenuWS
+    ws <- dm dmenuWSPrompt ts
     if ws `elem` ts
        then job ws
        else addHiddenWorkspace ws >> job ws
@@ -173,7 +180,7 @@ appGrid = shellGrid ++ cells
     cells :: [Cell]
     cells =
       [ ("Vimiv", "vimiv")
-      , ("Spotify", "spotify")
+      , ("Spotify", "spotify-launcer")
       , ("Gimp", "gimp")
       , ("wxMaxima", "wxmaxima")
       , ("Xasy", "xasy")
@@ -216,7 +223,7 @@ bookmarkGrid =
       , ("Python Documentation", "docs.python.com")
       , ("Haskell Wiki", "wiki.haskell.org")
       , ("Vim cheatsheet", "vim.rotrr.com")
-      , ("Neovim Documenation", "neovio.io/doc")
+      , ("Neovim Documentation", "neovio.io/doc")
       , ("Git Documentation", "git-scm.com/doc")
       , ("Arch Wiki", "wiki.archlinux.org")
       , ("Linux manpages", "linux.die.net/man")
@@ -243,11 +250,8 @@ gsConf =
     , gs_cellpadding = 6
     , gs_originFractX = 0.5
     , gs_originFractY = 0.5
-    , gs_font = xmFont
+    , gs_font = anonPro
     }
-
-gsLaunch :: Grid -> X()
-gsLaunch = spawnSelected'
 
 xmModes :: [Mode]
 xmModes = [xmExitMode, xmLaunchMode, xmWorkspaceMode, xmResizeMode]
@@ -376,16 +380,13 @@ addKeys =
   , ((modm, xK_space),         sendMessage NextLayout)
   -- , ((modShift,xK_space),    setLayout $ )
 
-    -- fine with prompt
-  , ((modm, xK_a),             appendWorkspacePrompt centeredPrompt)
-  , ((modm, xK_r),             renameWorkspace centeredPrompt)
-    -- redo with dmenu
-  -- , ((modm, xK_s),             selectWorkspace bottomPrompt)
+    -- fine with prompt or
+    -- redo with dmenu?
+  , ((modm, xK_a),             appendWorkspacePrompt centerPrompt)
+  , ((modm, xK_r),             renameWorkspace centerPrompt)
   , ((modm, xK_s),             selectWorkspace')
   , ((modShift, xK_w),         withWorkspace' (windows . W.shift))
   , ((modCtrl, xK_w),          withWorkspace' (windows . copy))
-  -- , ((modShift, xK_w),         withWorkspace bottomPrompt (windows . W.shift))
-  -- , ((modCtrl, xK_w),          withWorkspace bottomPrompt (windows . copy))
   , ((modShift, xK_BackSpace), removeWorkspace)
     -- dynamic workspaces commands
 
@@ -418,9 +419,9 @@ addKeys =
   , ((modm, xK_d),             spawn dmenu_run)
 
     -- TODO Debug these or look into image magick import
-  , ((noMod, xK_Print),        unGrab *> spawn scrot_screen)
-  , ((modm, xK_Print),         unGrab *> spawn scrot_focused)
-  , ((modShift, xK_Print),     unGrab *> spawn scrot_select)
+  -- , ((noMod, xK_Print),        unGrab *> spawn scrot_screen)
+  -- , ((modm, xK_Print),         unGrab *> spawn scrot_focused)
+  -- , ((modShift, xK_Print),     unGrab *> spawn scrot_select)
 
   , ((noMod, xK_Insert),       pasteSelection)
   ]
@@ -436,24 +437,36 @@ addKeys =
   , (f, m) <- [(W.view, 0), (W.shift, shift)]
   ]
     where
-        dmenuDefaultArgs, goto_args :: [String]
-        dmenuDefaultArgs = ["-b", "-h", "20"]
-        goto_args     = dmenuDefaultArgs ++ ["-p", "Where to?"]
-        bring_args    = dmenuDefaultArgs ++ ["-p", "Which shall I bring?"]
-        dmenu_run     = "dmenu_run -b -h 20 -p 'Yes, Master?'"
+        gsLaunch      = spawnSelected'
         reload_xmonad = "xmonad --recompile; xmonad --restart"
-        scrot_screen  = "sleep 0.2; scrot -q 100 --file "     ++ scrot_file
-        scrot_select  = "sleep 0.2; scrot -sf -q 100 --file " ++ scrot_file
-        scrot_focused = "sleep 0.2; scrot -u -q 100 --file "  ++ scrot_file
-        scrot_file    = "~/pictures/screnshots/%Y-%m-%d-%T-screenshot.png"
+        dmenu_run     = "dmenu_run " ++ unlines run_args
+        run_args      = dmenuDefArgs ++ ["-p", "Yes, Master?"]
+        goto_args     = dmenuDefArgs ++ ["-p", "Where to?"]
+        bring_args    = dmenuDefArgs ++ ["-p", "Which shall I bring?"]
+        -- scrotScreen  = "sleep 0.2; scrot -q 100 --file "     ++ scrot_file
+        -- scro_select  = "sleep 0.2; scrot -sf -q 100 --file " ++ scrot_file
+        -- scrot_focused = "sleep 0.2; scrot -u -q 100 --file "  ++ scrot_file
+        -- scrot_file    = "~/pictures/screnshots/%Y-%m-%d-%T-screenshot.png"
 
 
 -- use loginctl? proper order to start these programs?
 -- seems to work fine
 -- start some nice programs
 xmStartupHook :: X ()
-xmStartupHook = spawnInitProgs
-
+xmStartupHook = spawnProgs
+    where
+        spawnProgs :: X()
+        spawnProgs = do
+            spawnOnce "xrandr --output DP1 --primary --output HDMI1 --left-of DP1"
+            spawnOnce "~/.fehbg"
+            spawnOnce "picom"
+            spawnOnce "dunst"
+            spawnOnce "xscreensaver -no-splash"
+        addInitWS :: X()
+        addInitWS = do
+            appendWorkspace "Spotify"
+            appendWorkspace "Email"
+            appendWorkspace "Calendar"
 
 spawnInitProgs :: X()
 spawnInitProgs = do
@@ -467,12 +480,6 @@ spawnInitProgs = do
   -- spawnOnce "blueman-applet"
   -- spawnOnce "nm-applet --sm-disable --indicator"
 
-addInitWS :: X()
-addInitWS = do
-    appendWorkspace "spotify"
-    spawnOn         "spotify" "spotify-launcher"
-    appendWorkspace "email"
-    -- spawnOn         "emai"
 
 -- Note that each layout is separated by ||| which denotes layout choice.
 xmLayoutHook =
@@ -519,14 +526,14 @@ xmEventHook = swallowEventHook query (return True)
 xmLogHook :: X ()
 xmLogHook = workspaceHistoryHook
 
-centeredPrompt :: P.XPConfig
-centeredPrompt =
+
+centerPrompt :: P.XPConfig
+centerPrompt =
   def
-    { P.font              = xmFont
-    , P.bgColor           = "#000000"
-    -- , P.fgColor           = "#ffffff"
-    , P.fgColor           = xmFBC
-    , P.borderColor       = xmFBC
+    { P.font              = anonPro
+    , P.bgColor           = black
+    , P.fgColor           = purple
+    , P.borderColor       = purple
     , P.promptBorderWidth = 2
     , P.position          = P.CenteredAt (1/2) (1/2)
     , P.height            = 20
@@ -536,10 +543,10 @@ centeredPrompt =
 bottomPrompt :: P.XPConfig
 bottomPrompt =
   def
-    { P.font              = xmFont
-    , P.bgColor           = "#000000"
-    , P.fgColor           = "#ffffff"
-    , P.borderColor       = xmFBC
+    { P.font              = anonPro
+    , P.bgColor           = black
+    , P.fgColor           = white
+    , P.borderColor       = purple
     , P.promptBorderWidth = 1
     , P.position          = P.Bottom
     , P.height            = 20
@@ -579,6 +586,7 @@ xmIcons = composeAll
   ]
 
 
+xmobarPrimary, xmobarAlternate :: StatusBarConfig
 xmobarPrimary = let cmd = home ++ "/.local/bin/xmobar-0"
                  in statusBarPropTo "_XMONAD_LOG_0" cmd (pure xmPP)
 
@@ -591,9 +599,6 @@ xmobar sc = let cmd  = home ++ "/.local/bin/xmobar-" ++ show sc
              in statusBarPropTo log cmd (pure xmPP)
 
 ------------------------------------------------------------------------------
-
-xmWS :: [String]
-xmWS = map show [1..9]
 
 modm, alt, shift, ctrl, noMod :: KeyMask
 modm     = mod4Mask
@@ -611,19 +616,23 @@ altShift, ctrlAlt :: KeyMask
 altShift = alt  .|. shift
 ctrlAlt  = alt  .|. ctrl
 
-term, browser, editor, home :: String
+black, white, purple, gray :: String
+black  = "#000000"
+white  = "#FFFFFF"
+purple = "#A865C9"
+gray   = "#DDDDDD"
+
+term, browser, editor, home, anonPro :: String
 term     = "kitty"
 browser  = "qutebrowser"
 editor   = "nvim"
 home     = "/home/carterlevo"
+anonPro  = "xft:Anonymous Pro Mono:weight=bold:pixelsize=14:antialias=true"
 
-xmNBC, xmFBC, xmFont :: String
-xmNBC    = "#DDDDDD"
-xmFBC    = "#A865C9"
-xmFont   = "xft:Anonymous Pro Mono:weight=bold:pixelsize=14:antialias=true"
 
-xmBW :: Dimension
-xmBW = 2
+
+terminalEnv :: IO String
+terminalEnv = getEnv "TERMINAL"
 
 -------------------------------------------------------------------------------
 
@@ -632,20 +641,20 @@ main =
   xmonad
     . ewmh
     . ewmhFullscreen
-    . withSB (xmobarPrimary  <> xmobarAlternate)
+    . withSB (xmobarPrimary <> xmobarAlternate)
     . docks
     . modal xmModes
     $ def
         { terminal = term
-        , borderWidth = xmBW
+        , borderWidth = 2
         , modMask = modm
-        , workspaces = xmWS
-        , normalBorderColor = xmNBC
-        , focusedBorderColor = xmFBC
+        , workspaces = map show [1..9]
+        , normalBorderColor = purple
+        , focusedBorderColor = gray
         , layoutHook = xmLayoutHook
         , logHook = xmLogHook
-        -- , manageHook = xmManageHook <+> manageSpawn <+> manageHook def
-        , manageHook = xmManageHook <+> manageHook def
+        , manageHook = xmManageHook <+> manageSpawn <+> manageHook def
+        -- , manageHook = xmManageHook <+> manageHook def
         , handleEventHook = xmEventHook
         , startupHook = xmStartupHook
         , focusFollowsMouse = False
