@@ -24,4 +24,8 @@ dist-*
 .HTF/
 .ghc.environment.*
 
+hie.yaml
 tags
+
+xmonad-x86_64-linux
+xmonad.errors

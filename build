@@ -1,0 +1,16 @@
+#!/usr/bin/sh -eu
+
+# Your source directory.
+SRC_DIR="$HOME/.xmonad"
+
+# Executable name,
+EXE_NAME="xmonad"
+
+cd "$SRC_DIR"
+
+cabal install $EXE_NAME \
+  --enable-executable-stripping \
+  --enable-optimization=2 \
+  --overwrite-policy=always
+
+ln -sf $( realpath "$HOME/.cabal/bin/$EXE_NAME" ) "$1"

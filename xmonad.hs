@@ -1,7 +1,7 @@
-module Main (main) where
-
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+module Main (main) where
 
 import           Control.Monad                      ((>=>))
 
@@ -171,6 +171,7 @@ shellGrid =
       , ("Cfdisk", "cfdisk")
       , ("Lvm Manager", "lvm")
       , ("Ranger", "ranger")
+      , ("Ledger", "ledger")
       , ("Hledger", hledger)
       ]
 
@@ -197,15 +198,15 @@ dotfilesGrid =
     cells :: [Cell]
     cells =
       [ ("Neovim", "~/.config/nvim")
-      , ("Kitty", "~/.config/kitty/kitty.conf")
-      , ("Ranger", "~/.config/ranger/rc.conf")
+      , ("Kitty", "~/.config/kitty")
+      , ("Ranger", "~/.config/ranger/")
       , ("Bash", "~/.bashrc")
       , ("Qutebrowser", "~/.config/qutebrowser")
-      , ("XMonad", "~/.config/xmonad/xmonad.hs")
+      , ("XMonad", "~/.config/xmonad/")
+      , ("Xmobar", "~/.config/xmonad/xmobar")
       , ("KMonad", "~/.config/kmonad")
       , ("i3", "~/.config/i3/config")
       , ("py3status", "~/.config/py3status/config")
-      , ("xmobar", "~/.config/xmobar")
       , ("Zathura", "~/.config/zathura/zathurarc")
       ]
 
@@ -260,15 +261,21 @@ xmModes = [xmExitMode, xmLaunchMode, xmWorkspaceMode, xmResizeMode]
 -- shift+letter: move to workspace beginning with letter 'a' to 'z'
 xmWorkspaceMode :: Mode
 xmWorkspaceMode =
-    let focus = zip (zip (repeat noMod) [xK_a..xK_z])
-                    (map (withLetWorkspace W.greedyView) ['a'..'z'])
-        move  = zip (zip (repeat shift) [xK_a..xK_z])
-                    (map (withLetWorkspace W.shift) ['a'..'z'])
-        nums  = [   (( m .|. noMod, k), windows $ f i)
-                |   (i, k) <- zip (map show [1..9]) [xK_1..xK_9]
-                ,   (f, m) <- [(W.greedyView, 0), (W.shift, shift)]
-                ]
-     in mode "workspace" $ \cfg -> M.fromList $ focus ++ move ++ nums
+    let letFocusExit ws = withLetWorkspace W.greedyView ws >> exitMode
+        focusExit i     = windows (W.greedyView i) >> exitMode
+        focus           = zip (zip (repeat noMod) [xK_a..xK_z])
+                              (map letFocusExit ['a'..'z'])
+        move            = zip (zip (repeat shift) [xK_a..xK_z])
+                              (map (withLetWorkspace W.shift) ['a'..'z'])
+        focusNum        = zip (zip (repeat noMod) [xK_1..xK_9])
+                              (map (focusExit . show)  [1..9])
+        moveNum         = zip (zip (repeat shift) [xK_1..xK_9])
+                              (map (windows . W.shift . show) [1..9])
+        numsMap         = [   (( m .|. noMod, k), windows $ f i)
+                          |   (i, k) <- zip (map show [1..9]) [xK_1..xK_9]
+                          ,   (f, m) <- [(W.greedyView, 0), (W.shift, shift)]
+                          ]
+     in mode "workspace" $ \cfg -> M.fromList $ focus ++ move ++ focusNum ++ moveNum
 
 --refactor
 withLetWorkspace :: (String -> WindowSet -> WindowSet) -> Char -> X ()
@@ -291,11 +298,11 @@ xmExitMode =  mode "exit" $ \cfg -> M.fromList lst
     where
         lst :: [KeyMap]
         lst =
-          [ ((noMod, xK_l), spawn "xscreensaver-command -lock")
+          [ ((noMod, xK_l), spawn "xscreensaver-command -lock" >> exitMode)
           , ((noMod, xK_p), spawn "systemctl poweroff")
           , ((noMod, xK_r), spawn "systemctl reboot")
-          , ((noMod, xK_s), spawn "systemctl suspend")
-          , ((noMod, xK_h), spawn "systemctl hibernate")
+          , ((noMod, xK_s), spawn "systemctl suspend" >> exitMode)
+          , ((noMod, xK_h), spawn "systemctl hibernate" >> exitMode)
           , ((noMod, xK_x), io exitSuccess)
           ]
 
@@ -425,12 +432,12 @@ addKeys =
 
   , ((noMod, xK_Insert),       pasteSelection)
   ]
-  -- ++ -- switch to ws at index n debug
-  -- zip (zip (repeat modm) [xK_1..xK_9])
-  --     (map (withWorkspaceIndex W.greedyView) [1..])
-  -- ++ -- set index N to the current workspace debug
-  -- zip (zip (repeat (modm .|. ctrl)) [xK_1..xK_9])
-  --     (map setWorkspaceIndex [1..])
+  ++ -- switch to ws at index n debug
+  zip (zip (repeat modm) [xK_1..xK_9])
+      (map (withWorkspaceIndex W.greedyView) [1..])
+  ++ -- set index N to the current workspace debug
+  zip (zip (repeat (modm .|. ctrl)) [xK_1..xK_9])
+      (map setWorkspaceIndex [1..])
   ++ -- switch ws between screens
   [ ((m .|. modm, k), screenWorkspace s >>= flip whenJust (windows . f))
   | (k, s) <- zip [xK_bracketleft, xK_bracketright] [0..]
@@ -457,7 +464,8 @@ xmStartupHook = spawnProgs
     where
         spawnProgs :: X()
         spawnProgs = do
-            spawnOnce "xrandr --output DP1 --primary --output HDMI1 --left-of DP1"
+            spawnOnce "xrandr --output DP1 --primary"
+            -- spawnOnce "xrandr --output HDMI1 --rotate left --right-of DP1"
             spawnOnce "~/.fehbg"
             spawnOnce "picom"
             spawnOnce "dunst"
@@ -586,17 +594,21 @@ xmIcons = composeAll
   ]
 
 
-xmobarPrimary, xmobarAlternate :: StatusBarConfig
-xmobarPrimary = let cmd = home ++ "/.local/bin/xmobar-0"
-                 in statusBarPropTo "_XMONAD_LOG_0" cmd (pure xmPP)
+-- xmobarPrimary, xmobarAlternate :: StatusBarConfig
+-- xmobarPrimary = let cmd = home ++ "/.local/bin/xmobar-0"
+--                  in statusBarPropTo "_XMONAD_LOG_0" cmd (pure xmPP)
+--
+-- xmobarAlternate = let cmd = home ++ "/.local/bin/xmobar-1"
+--                    in statusBarPropTo "_XMONAD_LOG_1" cmd (pure xmPP)
+--
+-- xmobar :: ScreenId -> StatusBarConfig
+-- xmobar sc = let cmd  = home ++ "/.local/bin/xmobar-" ++ show sc
+--                 log  = "_XMONAD_LOG_" ++ show sc
+--              in statusBarPropTo log cmd (pure xmPP)
 
-xmobarAlternate = let cmd = home ++ "/.local/bin/xmobar-1"
-                   in statusBarPropTo "_XMONAD_LOG_1" cmd (pure xmPP)
-
-xmobar :: ScreenId -> StatusBarConfig
-xmobar sc = let cmd  = home ++ "/.local/bin/xmobar-" ++ show sc
-                log  = "_XMONAD_LOG_" ++ show sc
-             in statusBarPropTo log cmd (pure xmPP)
+xmobar :: StatusBarConfig
+xmobar = let cmd = home ++ "/.cabal/bin/xmobar"
+    in statusBarPropTo "_XMONAD_LOG_0" cmd (pure xmPP)
 
 ------------------------------------------------------------------------------
 
@@ -641,7 +653,8 @@ main =
   xmonad
     . ewmh
     . ewmhFullscreen
-    . withSB (xmobarPrimary <> xmobarAlternate)
+    . withSB xmobar
+    -- . withSB (xmobarPrimary <> xmobarAlternate)
     . docks
     . modal xmModes
     $ def

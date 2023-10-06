@@ -1,0 +1,3 @@
+packages: xmonad-git/*.cabal xmonad-contrib-git/*.cabal xmobar-git/*.cabal *.cabal
+
+constraints: xmobar +all_extensions

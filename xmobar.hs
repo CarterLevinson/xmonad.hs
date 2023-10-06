@@ -77,11 +77,14 @@ config =
           , Run $ Date "<fn=1>\xF273</fn> %a %m-%d-%Y" "date" 10
           , Run $ Date "<fc=#FFFFFF>%H:%M</fc>" "time" 10
           , Run $ Uptime ["-t", "Up: <days>d <hours>h"] 360
+          , Run $ Com "sh" ["-c", "checkupdates | wc -l"] "updates" 3600
 
           , Run $ Com "sh" ["-c", "checkupdates | wc -l"] "updates" 3600
 
           , Run $ Com "uname" ["-r"] "kernel" 36000
           , Run $ Com "userhost" [] "host" 36000
+
+          , Run $ Com "echo" ["<fn=1>\xF0F3</fn>"] "bell" 36000
           , Run $ Com "echo" ["<fn=1>\xF303</fn>"] "arch" 36000
           , Run $ Com "echo" ["<fn=1>\xE22C</fn>"] "pi" 36000
           , Run $ Com "echo" ["<fn=1>\xFB26</fn>"] "lambda" 36000
@@ -90,7 +93,8 @@ config =
       , template =
           "<icon=arch-linux-2.xpm/> %_XMONAD_LOG_0% }{\
             \| %arch% CPU: %cpu% %cpufreq% %multicoretemp% | %memory% %swap% \
-            \| %wlp8s0% | %clock% %uptime% | %date% | %time% "
+            \| %bell% %updates% | %wlp8s0% | %clock% %uptime% | %date% \
+            \| %KMDW% | %time% "
       }
 
 
