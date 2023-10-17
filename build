@@ -1,16 +1,74 @@
 #!/usr/bin/sh -eu
 
-# Your source directory.
-SRC_DIR="$HOME/.xmonad"
+# xmonad source code directory
+SRC="$HOME/.xmonad"
 
-# Executable name,
-EXE_NAME="xmonad"
+# installation directory
+DST="$HOME/bin"
 
-cd "$SRC_DIR"
+# ghc version
+GHC="9.6.3"
 
-cabal install $EXE_NAME \
-  --enable-executable-stripping \
-  --enable-optimization=2 \
-  --overwrite-policy=always
+# cabal version
+CBL="3.10.1.0"
 
-ln -sf $( realpath "$HOME/.cabal/bin/$EXE_NAME" ) "$1"
+# real path of installed xmonad
+XMW=$(realpath "$(which xmonad)")
+# XMW="$(which xmonad)"
+
+# output name
+OUT="$SRC/xmonad-$(uname -m)-linux"
+
+# error code
+ERR=0
+
+if test "$#" -gt 1; then
+  ERR=1
+  >&2 echo "ERROR: too many arguments"
+  exit "$ERR"
+fi
+
+if ! test -d "$SRC"; then
+  ERR=1
+  >&2 echo "ERROR: $SRC is not a valid directory"
+  exit "$ERR"
+fi
+
+if ! test -d "$DST"; then
+  ERR=1
+  >&2 echo "ERROR: $DST is not a valid directory"
+  exit "$ERR"
+fi
+
+if test "$#" -eq 1; then
+  OUT="$1"
+fi
+
+if test -z "$XMW" || test "$SRC/xmonad.hs" -nt "$XMW"; then
+  ghcup -c run --ghc "$GHC" --cabal "$CBL" -- cabal install config \
+    --enable-executable-stripping \
+    --enable-optimization=2 \
+    --overwrite-policy=always \
+    --installdir="$DST"
+fi
+
+if test "$ERR" -ne 0; then
+  >&2 echo "ERROR: build failure"
+  exit "$ERR"
+fi
+
+ln -sf "$DST/xmonad" "$SRC/xmonad"
+if test "$?" -ne 0; then
+  ERR="$?"
+  >&2 echo "ERROR: link failure"
+  exit "$ERR"
+fi
+
+ln -sf "$SRC/xmonad" "$OUT"
+if test "$?" -ne 0; then
+  ERR="$?"
+  >&2 echo "ERROR: link  failure"
+  exit "$ERR"
+fi
+
+exit $ERR

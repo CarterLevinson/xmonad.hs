@@ -1,9 +1,11 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# OPTIONS_GHC -Wall #-}
 
 module Main (main) where
 
-import           Control.Monad                      ((>=>))
+import           Control.Monad
 
 import qualified Data.Map                           as M
 import           Data.Monoid
@@ -263,19 +265,23 @@ xmWorkspaceMode :: Mode
 xmWorkspaceMode =
     let letFocusExit ws = withLetWorkspace W.greedyView ws >> exitMode
         focusExit i     = windows (W.greedyView i) >> exitMode
-        focus           = zip (zip (repeat noMod) [xK_a..xK_z])
-                              (map letFocusExit ['a'..'z'])
-        move            = zip (zip (repeat shift) [xK_a..xK_z])
-                              (map (withLetWorkspace W.shift) ['a'..'z'])
-        focusNum        = zip (zip (repeat noMod) [xK_1..xK_9])
-                              (map (focusExit . show)  [1..9])
-        moveNum         = zip (zip (repeat shift) [xK_1..xK_9])
-                              (map (windows . W.shift . show) [1..9])
-        numsMap         = [   (( m .|. noMod, k), windows $ f i)
-                          |   (i, k) <- zip (map show [1..9]) [xK_1..xK_9]
-                          ,   (f, m) <- [(W.greedyView, 0), (W.shift, shift)]
-                          ]
-     in mode "workspace" $ \cfg -> M.fromList $ focus ++ move ++ focusNum ++ moveNum
+        focusLetter = zip (map (noMod, ) [xK_a..xK_z])
+                          (map letFocusExit ['a'..'z'])
+        moveLetter = zip (map (shift, ) [xK_a..xK_z])
+                         (map (withLetWorkspace W.shift) ['a'..'z'])
+        focusNumber = zip (map (noMod, ) [xK_1..xK_9])
+                          (map (focusExit . show ) [1..9])
+        moveNumber = zip (map (shift, ) [xK_1..xK_9])
+                         (map (windows . W.shift . show) [1..9])
+        -- numsMap         = [   (( m .|. noMod, k), windows $ f i)
+        --                   |   (i, k) <- zip (map show [1..9]) [xK_1..xK_9]
+        --                   ,   (f, m) <- [(W.greedyView, 0), (W.shift, shift)]
+        --                   ]
+     in mode "workspace" $ \cfg -> M.fromList $
+         focusLetter ++
+         moveLetter ++
+         focusNumber ++
+         moveNumber
 
 --refactor
 withLetWorkspace :: (String -> WindowSet -> WindowSet) -> Char -> X ()
@@ -304,6 +310,7 @@ xmExitMode =  mode "exit" $ \cfg -> M.fromList lst
           , ((noMod, xK_s), spawn "systemctl suspend" >> exitMode)
           , ((noMod, xK_h), spawn "systemctl hibernate" >> exitMode)
           , ((noMod, xK_x), io exitSuccess)
+          -- , ((shift, xK_r), restart (home ++ "/.xmonad/xmonad-x86-64-linux") True)
           ]
 
 xmLaunchMode :: Mode
@@ -352,11 +359,10 @@ rmKeys =
   , (modm, xK_space)
   -- , (modShift, xK_space)
   ]
-  ++ zip (repeat modm)      [xK_a..xK_z]
-  ++ zip (repeat modShift)  [xK_a..xK_z]
-  ++ zip (repeat modm)      [xK_1..xK_9]
-  ++ zip (repeat modShift)  [xK_1..xK_9]
-
+  ++ map (modm,)      [xK_a..xK_z]
+  ++ map (modm,)      [xK_1..xK_9]
+  ++ map (modShift, ) [xK_a..xK_z]
+  ++ map (modShift, ) [xK_1..xK_9]
 
 addKeys :: [KeyMap]
 addKeys =
@@ -407,10 +413,11 @@ addKeys =
 
   , ((modm, xK_c),             gsLaunch dotfilesGrid)
   , ((modm, xK_m),             gsLaunch bookmarkGrid)
-  , ((modShift, xK_o),         gsLaunch appGrid)
+  -- , ((modShift, xK_o),         gsLaunch appGrid)
     -- grid select commands debug
-  , ((modShift, xK_c),         spawn reload_xmonad)
+  , ((modShift, xK_c),         recompile_xmonad)
   , ((modm, xK_q),             kill)
+  , ((modShift, xK_q),         restart_xmonad)
 
   , ((modm, xK_w),             setMode "workspace")
   , ((modm, xK_o),             setMode "launch")
@@ -433,10 +440,10 @@ addKeys =
   , ((noMod, xK_Insert),       pasteSelection)
   ]
   ++ -- switch to ws at index n debug
-  zip (zip (repeat modm) [xK_1..xK_9])
+  zip (map (modm,) [xK_1..xK_9])
       (map (withWorkspaceIndex W.greedyView) [1..])
   ++ -- set index N to the current workspace debug
-  zip (zip (repeat (modm .|. ctrl)) [xK_1..xK_9])
+  zip (map (modCtrl,) [xK_1..xK_9])
       (map setWorkspaceIndex [1..])
   ++ -- switch ws between screens
   [ ((m .|. modm, k), screenWorkspace s >>= flip whenJust (windows . f))
@@ -445,7 +452,14 @@ addKeys =
   ]
     where
         gsLaunch      = spawnSelected'
-        reload_xmonad = "xmonad --recompile; xmonad --restart"
+        restart_xmonad = restart (home ++ "/.xmonad/xmonad-86-64-linux") True
+        recompile_xmonad = spawn "xmonad --recompile; notify-send 'Compilation Completed' 'NOW'"
+
+
+        -- recompile_xmonad = runInBash "xmonad --recompile; xmonad --restart; exit"
+        -- recompile_xmonad = confirm "Recompile" $ spawn "xmonad --recompile; xmonad --restart";
+        reload_xmonad = spawn "xmonad --recompile" >> restart (home ++ "/.xmonad/xmonad-x86-64-linux") True
+        -- reload_xmonad = "xmonad --recompile; xmonad --restart"
         dmenu_run     = "dmenu_run " ++ unlines run_args
         run_args      = dmenuDefArgs ++ ["-p", "Yes, Master?"]
         goto_args     = dmenuDefArgs ++ ["-p", "Where to?"]
@@ -455,6 +469,11 @@ addKeys =
         -- scrot_focused = "sleep 0.2; scrot -u -q 100 --file "  ++ scrot_file
         -- scrot_file    = "~/pictures/screnshots/%Y-%m-%d-%T-screenshot.png"
 
+
+confirm :: String -> X () -> X ()
+confirm m f = do
+    result <- D.dmenu [m]
+    when (init result == m) f
 
 -- use loginctl? proper order to start these programs?
 -- seems to work fine
@@ -467,9 +486,9 @@ xmStartupHook = spawnProgs
             spawnOnce "xrandr --output DP1 --primary"
             -- spawnOnce "xrandr --output HDMI1 --rotate left --right-of DP1"
             spawnOnce "~/.fehbg"
-            spawnOnce "picom"
+            -- spawnOnce "picom"
             spawnOnce "dunst"
-            spawnOnce "xscreensaver -no-splash"
+            spawnOnce "xscreensaver --no-splash"
         addInitWS :: X()
         addInitWS = do
             appendWorkspace "Spotify"
@@ -478,11 +497,11 @@ xmStartupHook = spawnProgs
 
 spawnInitProgs :: X()
 spawnInitProgs = do
-  spawnOnce "xrandr --output DP1 --primary --output HDMI1 --left-of DP1"
+  -- spawnOnce "xrandr --output DP1 --primary --output HDMI1 --left-of DP1"
   spawnOnce "~/.fehbg"
   spawnOnce "picom"
   spawnOnce "dunst"
-  spawnOnce "xscreensaver -no-splash"
+  spawnOnce "xscreensaver --no-splash"
   -- systray apps?
   -- spawnOnce "pasystray"
   -- spawnOnce "blueman-applet"
@@ -607,7 +626,7 @@ xmIcons = composeAll
 --              in statusBarPropTo log cmd (pure xmPP)
 
 xmobar :: StatusBarConfig
-xmobar = let cmd = home ++ "/.cabal/bin/xmobar"
+xmobar = let cmd = home ++ "/bin/xmobar"
     in statusBarPropTo "_XMONAD_LOG_0" cmd (pure xmPP)
 
 ------------------------------------------------------------------------------
@@ -640,7 +659,6 @@ browser  = "qutebrowser"
 editor   = "nvim"
 home     = "/home/carterlevo"
 anonPro  = "xft:Anonymous Pro Mono:weight=bold:pixelsize=14:antialias=true"
-
 
 
 terminalEnv :: IO String

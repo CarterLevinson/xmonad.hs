@@ -1,31 +1,32 @@
+cabal-version:       3.0
 name:                config
 version:             0.1.0.0
 -- synopsis:
 -- description:
-homepage:            ""
-license:             BSD3
+-- homepage:            ""
+license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Carter S. Levinson
-maintainer:          cslevo@posteo.net
-copyright:           2023 Carter S. Levinson
+maintainer:          carter@levinson.cc
+-- copyright:           2023 Carter S. Levinson
 category:            Desktop
 build-type:          Simple
-cabal-version:       >=1.10
 extra-source-files:  README.md
+extra-doc-files:     CHANGELOG.md
+-- extra-source-files:
+
+-- common warnings
+--   ghc-options: -Wall
 
 executable xmonad
-  hs-source-dirs:      ./
+  -- import:              warnings
   main-is:             xmonad.hs
-  default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5,
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.17 && < 5,
                        xmonad,
                        xmonad-contrib,
                        containers,
                        text
-
-executable xmobar
   hs-source-dirs:      ./
-  main-is:             xmobar.hs
   default-language:    Haskell2010
-  build-depends:       base >= 4.7 && < 5,
-                       xmobar
