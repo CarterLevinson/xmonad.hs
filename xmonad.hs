@@ -1,8 +1,6 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-{-# OPTIONS_GHC -Wall #-}
-
 module Main (main) where
 
 import           Control.Monad
