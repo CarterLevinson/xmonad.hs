@@ -441,6 +441,8 @@ main =
         , ((modm, xK_z),             zshShellPrompt)
         , ((modm, xK_x),             xmonadCmdPrompt)
 
+        , ((modm, xK_f),             runInShell "ranger")
+        , ((modm, xK_b),             spawn "browser")
 
         , ((modm,     xK_Return),    runInShell "")
         , ((modShift, xK_Return),    runInShell "'cf ~'")
