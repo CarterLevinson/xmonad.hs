@@ -1,8 +1,8 @@
 cabal-version:      3.0
 name:               config
 version:            0.1.0.0
--- synopsis:
--- description:
+synopsis:           XMonad configuration
+description:        Configureation and functions for the XMonad tiling WM
 -- homepage:
 license:            BSD-3-Clause
 license-file:       LICENSE
@@ -11,63 +11,53 @@ maintainer:         carter@levinson.cc
 copyright:          2023
 category:           Desktop
 build-type:         Simple
-extra-doc-files:    CHANGELOG.md
--- extra-source-files:
+extra-doc-files:    CHANGELOG.md, README.md
 
-common warnings
+common              warnings
   ghc-options:      -Wall
 
-common language
+common              language
   default-language: Haskell2010
 
-common dependencies
+common              dependencies
   build-depends:    base ^>= 4.18.1.0,
                     xmonad,
                     xmonad-contrib
+
+executable          xmonad
+  import:           dependencies,
+                    warnings,
+                    language
+  hs-source-dirs:   ./
+  main-is:          Main.hs
+  build-depends:    config,
+                    X11,
+                    containers,
+                    text
 
 library
   import:           dependencies,
                     warnings,
                     language
   hs-source-dirs:   lib
-  -- other-modules:
-  -- other-extensions:
-  exposed-modules:  XMonad.Config,
-                    XMonad.Config.Action,
-                    XMonad.Config.Data,
-                    XMonad.Config.Grid,
-                    XMonad.Config.Modal,
-                    XMonad.Config.Prompt,
-                    XMonad.Config.Layout,
-                    XMonad.Config.Util,
-                    XMonad.Config.Static,
-                    XMonad.Config.Workspace
+  exposed-modules:  Config,
+                    Config.Data,
+                    Config.Grids,
+                    Config.Utils,
+                    Config.Static,
+                    Config.Hooks,
+                    Config.Layouts,
+                    Config.Workspaces
   build-depends:    containers,
                     text,
                     mtl,
                     X11
 
-
-
-executable xmonad
-  import:           dependencies,
-                    warnings,
-                    language
-  hs-source-dirs:   ./
-  -- other-modules:
-  -- other-extensions:
-  main-is:          Main.hs
-  build-depends:    config,
-                    containers,
-                    text
-
-test-suite test
-  import:           dependencies,
-                    warnings,
-                    language
-  hs-source-dirs:   test
-  -- other-modules:
-  -- other-extensions:
-  type:             exitcode-stdio-1.0
-  main-is:          Test.hs
-  build-depends:    config
+-- test-suite test
+--   import:           dependencies,
+--                     warnings,
+--                     language
+--   hs-source-dirs:   test
+--   type:             exitcode-stdio-1.0
+--   main-is:          Test.hs
+--   build-depends:    config

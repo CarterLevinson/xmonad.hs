@@ -1,4 +1,4 @@
-module XMonad.Config.Static
+module Config.Static
     ( modm
     , alt
     , shift
@@ -18,16 +18,34 @@ module XMonad.Config.Static
     , browser
     , editor
     , home
-    -- , anonPro
+    , fallbackFont
+    , anonymousPro
+    , sourceCodePro
+    , firaCode
+    , firaSans
+    , inputMono
+    , inputSerif
+    , hackFont
     , cliCells
     , guiCells
     , bmCells
     , dfCells
+    , searchCells
+    , f86AudioRaise
+    , f86AudioLower
+    , f86AudioNext
+    , f86AudioPrev
+    , f86AudioPlay
+    , f86AudioPause
+    , f86AudioMute
+    , f86AudioMicMute
     ) where
+
+import Config.Data
 
 import Data.Bits ((.|.))
 import Graphics.X11
-import XMonad.Config.Data
+import Graphics.X11.ExtraTypes.XF86
 
 -- static data
 modm, alt, shift, ctrl, noMod :: KeyMask
@@ -52,6 +70,17 @@ white  = "#FFFFFF"
 purple = "#A865C9"
 gray   = "#DDDDDD"
 
+f86AudioNext, f86AudioPrev, f86AudioPlay, f86AudioPause :: KeySym
+f86AudioNext    = xF86XK_AudioNext
+f86AudioPrev    = xF86XK_AudioPrev
+f86AudioPlay    = xF86XK_AudioPlay
+f86AudioPause   = xF86XK_AudioPause
+
+f86AudioMute, f86AudioRaise, f86AudioLower, f86AudioMicMute :: KeySym
+f86AudioMute    = xF86XK_AudioMute
+f86AudioRaise   = xF86XK_AudioRaiseVolume
+f86AudioLower   = xF86XK_AudioLowerVolume
+f86AudioMicMute = xF86XK_AudioMicMute
 
 term, browser, editor, shell, hledger :: Command
 term     = "kitty"
@@ -64,7 +93,48 @@ hledger  = "hledger-ui -f ~/finance/.hledger.journal"
 -- home, anonPro :: String
 home :: Path
 home     = "/home/carterlevo"
--- anonPro  = "xft:Anonymous Pro Mono:weight=bold:pixelsize=14:antialias=true"
+
+fallbackFont    :: XftFont
+fallbackFont    = XFT
+    { family    = "DejaVu Sans Mono"
+    , size      = 14.0
+    , weight    = Bold
+    , slant     = Roman
+    , spacing   = Mono
+    , hinting   = True
+    , antialias = True
+    , pixelsize = Nothing
+    }
+
+hackFont :: XftFont
+hackFont        = fallbackFont
+    { family    = "Hack"    }
+
+firaCode :: XftFont
+firaCode        = fallbackFont
+    { family    = "Fira Code" }
+
+firaSans :: XftFont
+firaSans        = fallbackFont
+    { family    = "Fira Sans" }
+
+inputMono :: XftFont
+inputMono       = fallbackFont
+    { family    = "Input Mono" }
+
+inputSerif :: XftFont
+inputSerif      = fallbackFont
+    { family    = "Input Serif" }
+
+anonymousPro :: XftFont
+anonymousPro    = fallbackFont
+    { family    = "Anonymous Pro" }
+
+sourceCodePro :: XftFont
+sourceCodePro   = fallbackFont
+    { family    = "Source Code Pro" }
+
+
 
 cliCells, guiCells, bmCells, dfCells :: [Cell]
 cliCells =
@@ -106,17 +176,19 @@ guiCells =
     , ("TradingView", "tradingview")
     ]
 dfCells =
-    [ ("Neovim", "~/.config/nvim")
+    [ ("Config", "~/.config")
+    , ("Neovim", "~/.config/nvim")
     , ("Kitty", "~/.config/kitty")
-    , ("Ranger", "~/.config/ranger/")
+    , ("Ranger", "~/.config/ranger")
     , ("Bash", "~/.bashrc")
-    , ("Qutebrowser", "~/.config/qutebrowser")
-    , ("XMonad", "~/.config/xmonad/")
-    , ("Xmobar", "~/.config/xmonad/xmobar")
+    , ("Git", "~/.gitconfig")
+    , ("XMonad", "~/.xmonad")
+    , ("Xmobar", "~/.xmobar")
     , ("KMonad", "~/.config/kmonad")
-    , ("i3", "~/.config/i3/config")
-    , ("py3status", "~/.config/py3status/config")
+    , ("Firefox", "~/.mozilla")
     , ("Zathura", "~/.config/zathura/zathurarc")
+    , ("Qutebrowser", "~/.config/qutebrowser")
+    , ("Zsh", "~/.zshrc")
     ]
 bmCells =
     [ ("Gmail", "mail.google.com")
@@ -143,4 +215,9 @@ bmCells =
     , ("CIA World Factbook", "cia.gov/the-world-factbook")
     , ("Project Euler", "projecteuler.net")
     , ("Wolfram Mathworld", "mathworld.wolfram.com")
+    ]
+
+searchCells :: [Cell]
+searchCells =
+    [ ( "", "" )
     ]

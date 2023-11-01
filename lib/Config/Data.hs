@@ -1,4 +1,4 @@
-module XMonad.Config.Data
+module Config.Data
     ( KeyPair
     , KeyMap
     , Cell
@@ -10,10 +10,11 @@ module XMonad.Config.Data
     , Weight (..)
     , Slant (..)
     , Spacing (..)
-    , XFTFont (..)
+    , XftFont (..)
     , ScreenshotAction (..)
     ) where
 
+import qualified Data.Text as T
 import           Graphics.X11       (KeyMask, KeySym)
 import           XMonad.Core        (X)
 
@@ -33,9 +34,9 @@ type Grid         = [Cell]
 -- custom data types
 --
 data ScreenshotAction
-    = FocusedWindow
-    | SelectedWindow
-    | FullScreen
+    = Fullscreen
+    | Selected
+    | Focused
     deriving (Read, Show, Enum, Eq)
 
 data Weight
@@ -58,13 +59,34 @@ data Spacing
     | CharCell
     deriving (Read, Show, Enum, Eq)
 
-data XFTFont = XFTFont
+data XftFont = XFT
     { family    :: String
     , size      :: Double
     , slant     :: Slant
     , weight    :: Weight
     , spacing   :: Spacing
-    , antialias :: Bool
     , hinting   :: Bool
+    , antialias :: Bool
+    , pixelsize :: Maybe Double
     }
-    deriving (Read, Show, Eq)
+    deriving (Read,Eq)
+
+showFont :: XftFont -> Font
+showFont xft =
+    let toLower           =  T.unpack . T.toLower . T.pack
+        showLower f       =  toLower  . show      . f
+        ps                =  pixelsize xft
+     in family xft ++ "-" ++ showLower size         xft
+        ++ ":slant="      ++ showLower slant        xft
+        ++ ":weight="     ++ showLower weight       xft
+        ++ ":spacing="    ++ showLower spacing      xft
+        ++ ":hinting="    ++ showLower hinting      xft
+        ++ ":antialias="  ++ showLower antialias    xft
+        ++ case ps of
+             Just p       ->
+                 ":pixelsize=" ++ show (Just p)
+             Nothing      ->
+                 ""
+
+instance Show XftFont where
+    show = showFont :: XftFont -> String

@@ -1,148 +1,74 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE TupleSections             #-}
 
+-- TODO: Finalize Layouts & learn more about layout internals see xmonad.doc
+-- TODO: Choose between modal or submap
+-- TODO: pretty print dynamic icons to window title not workspace id
 
 module Main (main) where
 
-import           XMonad.Config.Action
-import           XMonad.Config.Data
-import           XMonad.Config.Layout
-import           XMonad.Config.Prompt
-import           XMonad.Config.Static
-import           XMonad.Config.Util
-import           XMonad.Config.Workspace
-
--- import           Control.Monad
--- import qualified Data.Text                          as T
-import qualified Data.Map                           as M
-import           Data.Monoid
-import           System.Exit
-
+import           Config
 import           XMonad
 
+import qualified Data.Map                           as M
+import qualified Data.Text                          as T
 import qualified XMonad.StackSet                    as W
 
 
+import qualified XMonad.Actions.Search              as S
+
 import           XMonad.Actions.CycleWS
-import           XMonad.Actions.DynamicWorkspaces
-import           XMonad.Actions.SpawnOn
+
 
 import           XMonad.Hooks.DynamicIcons          (appIcon, iconsPP)
 import           XMonad.Hooks.EwmhDesktops          (ewmh, ewmhFullscreen)
-import           XMonad.Hooks.ManageDocks
-import           XMonad.Hooks.ManageHelpers         (isDialog)
-import           XMonad.Hooks.Modal
+import           XMonad.Hooks.ManageDocks           (ToggleStruts (..), docks)
+import           XMonad.Hooks.Modal                 (exitMode, modal, mode,
+                                                     setMode)
+import           XMonad.Hooks.Script                ()
 import           XMonad.Hooks.StatusBar
 import           XMonad.Hooks.StatusBar.PP
-import           XMonad.Hooks.Script
-import           XMonad.Hooks.WindowSwallowing      (swallowEventHook)
-import           XMonad.Hooks.WorkspaceHistory      (workspaceHistoryHook)
-
 
 import           XMonad.Layout.BinarySpacePartition hiding (Swap)
 import           XMonad.Layout.Hidden               (hideWindow,
                                                      popNewestHiddenWindow)
 import           XMonad.Layout.WindowNavigation     (Navigate (..))
 
-
 import           XMonad.Util.EZConfig               (additionalKeys, removeKeys)
+import           XMonad.Util.NamedScratchpad
 import           XMonad.Util.Paste                  (pasteSelection)
-import           XMonad.Util.SpawnOnce              (spawnOnce)
 import           XMonad.Util.Ungrab                 (unGrab)
 import           XMonad.Util.WorkspaceCompare       (getSortByIndex)
 
--- import qualified XMonad.Actions.Search              as S
--- import           XMonad.Layout.SubLayouts
-
--- import           XMonad.Layout.Fullscreen
+import           System.Exit                        (exitSuccess)
 
 -- import           XMonad.Actions.TopicSpace          as TS
--- import           XMonad.Util.NamedScratchpad
+-- import           XMonad.Layout.SubLayouts
+-- import           XMonad.Layout.Fullscreen
 
-
--- TODO: dmenu
--- TODO: Advanced layuouts config
--- TODO: XMonad.contrib modal
--- TODO: more workspace and monitor control
--- TODO: scratchpad workspace
--- TODO: xmobar pretty print & xmonad log hooks
--- TODO: XMonad layout internals
--- TODO: greedy view and view?
-
-
--- confirm :: String -> X () -> X ()
--- confirm m f = do
---     result <- D.dmenu [m]
---     when (init result == m) f
-
--- use loginctl? proper order to start these programs?
--- seems to work fine
--- start some nice programs
-xmStartupHook :: X ()
-xmStartupHook = do
-    spawnOnce xrandr
-    spawnOnce "~/.fehbg"
-    spawnOnce xscreensaver
-    spawnOnce "dunst"
-    -- appendWorkspace "Spotify"
-    -- spawnOn "Spotify" "spotify-launcer"
-    -- spawnOn windows "Spotify") "spotify-launcher"
-    -- appendWorkspace "Spotify"
-    -- appendWorkspace "Email"
-    -- appendWorkspace "Calendar"
-        where
-            xrandr = "xrandr --output DP1 --primary"
-            xscreensaver = "xscreensaver --no-splash"
-
-
-
--- create some X window rules:
--- look into the hook helpers import
-xmManageHook :: Query (Endo WindowSet)
-xmManageHook = composeAll
-  [ isDialog                                     --> doFloat
-  , className =? "mpv"                           --> doFloat
-  , className =? "Gimp"                          --> doFloat
-  , className =? "toolbar"                       --> doFloat
-  , className =? "confirm"                       --> doFloat
-  , className =? "error"                         --> doFloat
-  , className =? "download"                      --> doFloat
-  , className =? "notification"                  --> doFloat
-  , className =? "Toolkit"                       --> doFloat
-  , className =? "Xmessage"                      --> doFloat
-  , className =? "pinentry"                      --> doFloat
-  , className =? "pinentry-qt"                   --> doFloat
-  , title     =? "Oracle VM VirtualBox Manager"  --> doFloat
-  ]
-
-xmEventHook :: Event -> X All
-xmEventHook = swallowEventHook (className =? "kitty") (return True)
-
--- logging: perform an arbitrary action on each internal state change
--- or X event
-xmLogHook :: X ()
-xmLogHook = workspaceHistoryHook
 
 ------------------------------------------------------------------------------
 
 xmPP :: PP
 xmPP = def
-    { ppCurrent = xmobarColor "white" "" . wrap "[" "]"
-    , ppVisible = wrap "<" ">"
-    , ppUrgent  = xmobarColor "red"   "" . wrap "!" "!"
-    -- , ppTitle   = shorten 80
-    , ppTitle   = id
-    , ppLayout  = last . words
-    , ppExtras  = []
-    , ppSort    = getSortByIndex
-    -- , ppHidden  = id
-    -- , ppHiddenNoWindows = const ""
+    { ppCurrent             = xmobarColor "#ECEFF3" "" . wrap "⟪" "⟫"
+    , ppVisible             = wrap "⟪" "⟫"
+    , ppHidden              = wrap "❲" "❳"
+    , ppHiddenNoWindows     = const ""
+    , ppSep                 = " | "
+    , ppUrgent              = xmobarColor "#FF003F"   "" . wrap "!" "!"
+    , ppTitle               = shorten 50
+    , ppLayout              = last . words
+    , ppExtras              = []
+    , ppSort                = getSortByIndex
+    -- , ppTitle               = id
+    -- , ppHidden           = id
+    -- , ppHiddenNoWindows  = const ""
     -- , ppVisibleNoWindows = Nothing
-    -- , ppPrinters = empty
+    -- , ppPrinters         = empty
     }
 
-
-
+-- TODO: Figure out dynamic icons for focused window title not workspaces
 xmIconsPP :: X PP
 xmIconsPP = iconsPP icons xmPP
     where
@@ -154,114 +80,81 @@ xmIconsPP = iconsPP icons xmPP
             ]
 
 
-xmobar :: StatusBarConfig
-xmobar = statusBarPropTo "_XMONAD_LOG_0" "xmobar" (pure xmPP)
+xmobarMain, xmobarTop, xmobarBot :: StatusBarConfig
+xmobarTop = statusBarPropTo "_XMONAD_LOG_TOP" "xmobar-top" (pure xmPP)
+xmobarBot = statusBarPropTo "_XMONAD_LOG_BOT" "xmobar-bot" (pure xmPP)
+xmobarMain = statusBarProp "xmobar-main" (pure xmPP)
 
+-- Replace with xmobar single?
+-- xmobar :: StatusBarConfig xmobar =  "_XMONAD_LOG_0" "xmobar" (pure xmPP)
 
 ------------------------------------------------------------------------------
 
-notify :: String -> String -> X ()
-notify msg body = spawn ("notify-send " ++ enquote msg ++ " " ++ enquote body)
-    where
-        enquote str = wrap str "'" "'"
+restartXmonad = home ++ "/.xmonad/scripts/notify-restart-xmonad.sh"
+recompileXmonad = home ++ "/.xmonad/scripts/notifiy-restart-xmonad.sh"
+-- restartXmonad :: X ()
+-- restartXmonad = spawn $ notifyCommand'
+--     "xmonad --restart"
+--     "XMonad restarted"
 
-restartXmonad :: X ()
-restartXmonad = do
-    notify "Restarting XMonad" "NOW"
-    spawn "xmonad --restart"
-
-recompileXmonad :: X ()
-recompileXmonad = do
-    notify "Compilation Started" "NOW"
-    runInShell "xmonad --recompile"
-    notify "Compilation Completed" "NOW"
+-- recompileXmonad :: X ()
+-- recompileXmonad = do
+--     spawn $ dunstify
+--         "Recompiling XMonad"
+--         "Starting recompilation now."
+--     spawn $ notifyCommand
+--         "xmonad --recompile"
+--         "Recompiling XMonad"
+--         "XMonad recompilation was a success."
+--         "XMonad recompilation has failed with an error code"
 
 reloadXmonad :: X ()
-reloadXmonad = do
-    recompileXmonad
-    restartXmonad
+reloadXmonad = spawn recompileXmonad >> spawn restartXmonad
+
+exitXmonad :: X ()
+exitXmonad = io exitSuccess
+
 
 dmenuRun :: X ()
-dmenuRun = spawn "dmenu_run -b -h 20 -p 'Yes, Master?'"
-
-
-screenshotCopy :: ScreenshotAction -> X()
-screenshotCopy ssa = spawn (maim ++ " | tee " ++ file ++ " | " ++ clip)
+dmenuRun = spawn $ "dmenu_run -p 'Yes, Master?' "
+    ++ "-nb '" ++ "#121212" ++ "' "
+    ++ "-nf '" ++ white     ++ "' "
+    ++ "-sb '" ++ "#FF003F" ++ "' "
+    ++ "-sf '" ++ white     ++ "' "
+    ++ "-fn '" ++ font      ++ "' "
+    ++ "-h 24 -b"
     where
-        file = "~/pictures/screenshots/maim-$(date '+%m-%d-%Y-T-%T').png"
-        clip = "xclip -selection clipboard -t image/png"
-        base = "maim -q -m 10"
-        maim = case ssa of
-                 FullScreen ->
-                     base
-                 FocusedWindow ->
-                     base ++ " -i $(xdotool getactivewindow)"
-                 SelectedWindow ->
-                     base ++ " -s"
+        font = show dmenuFont
 
-
--- cycleMainLayouts :: X ()
--- cycleMainLayouts = cycleThroughLayouts ["BSP", "Spiral", "Mosaic" ]
---
 -------------------------------------------------------------------------------
 
 xmWS :: [String]
 xmWS = map show ([1 .. 9]::[Integer])
 
-
--------------------------------------------------------------------------------
-
-
-
--- xmModePairs =
---
--- -- xmModes = zipWith \(md, km) -> mode md k names maps
---     where (names, keyMaps) = unzip xmModePairs
---         maps = map M.fromList keyMaps
---         modes = map mode names
-
-
--- shellExit cmd = doExit $ runInShell cmd
-
--- makeMode name keyMap = mode name $ \_ M.fromList keyMap
-
--- xmModes = zipWith makeMode names maps
---     where
---         (names, maps) = unzip
---                 [ ("exit", exitKeys)
---                 , ("prompt", promptKeys)
---                 , ("resize", resizeKeys)
---                 , ("search", searchKeys)
---                 ]
-
-
-
-xmModes :: [Mode]
-xmModes =
-    [ xmExitMode
-    , xmResizeMode
-    , xmSearchMode
-    , xmPromptMode
-    ]
-
--- makeMode =
-
-xmExitMode :: Mode
-xmExitMode = mode "exit" $ \_ -> M.fromList
-    [ ((noMod, xK_l), spawnExit "xscreensaver-command -lock")
-    , ((noMod, xK_p), spawnExit "systemctl poweroff")
-    , ((noMod, xK_r), spawnExit "systemctl reboot")
-    , ((noMod, xK_s), spawnExit "systemctl suspend")
-    , ((noMod, xK_h), spawnExit "systemctl hibernate")
-    , ((noMod, xK_q), spawnExit "xmonad --restart")
-    , ((noMod, xK_c), shellExit "xmonad --recompile")
-    , ((noMod, xK_x), io exitSuccess)
-    ]
+xmModal :: XConfig l -> XConfig l
+xmModal = modal xmModes
     where
-        doExit m = exitMode >> m
-        spawnExit cmd = doExit $ spawn cmd
-        shellExit cmd = doExit $ runInShell cmd
+        xmModes =
+            [ mode "exit"   $ \_ -> M.fromList exitKeys
+            , mode "resize" $ const M.empty
+            , mode "prompt" $ const M.empty
+            , mode "search" $ const M.empty
+            , mode "gaps"   $ const M.empty
+            ]
 
+
+exitKeys :: [KeyMap]
+exitKeys =
+    [ ((noMod, xK_l), exitMode >> spawn "xscreensaver-command -lock")
+    , ((noMod, xK_h), exitMode >> spawn "systemctl hibernate")
+    , ((noMod, xK_s), exitMode >> spawn "systemctl suspend")
+    , ((noMod, xK_p), exitMode >> spawn "systemctl poweroff")
+    , ((noMod, xK_r), exitMode >> spawn "systemctl reboot")
+    , ((noMod, xK_x), exitMode >> exitXmonad)
+    , ((noMod, xK_q), exitMode >> spawn restartXmonad)
+    , ((noMod, xK_c), exitMode >> spawn recompileXmonad)
+    , ((shift, xK_q), exitMode >> reloadXmonad)
+    ]
 
 -- xmLaunchMode :: Mode
 -- xmLaunchMode = mode "launch" $ \_ -> M.fromList lst
@@ -281,26 +174,30 @@ xmExitMode = mode "exit" $ \_ -> M.fromList
 --           ]
 --
 
-xmResizeMode :: Mode
-xmResizeMode = mode "resize" $ \_ -> M.fromList []
+scratchpads :: [NamedScratchpad]
+scratchpads =
+    [ NS "htop" (term ++ "htop") (title =? "htop") defaultFloating
+    , NS "paru" (term ++ shell ++ " -is paru") (title =? "paru") defaultFloating
+    ]
 
-xmPromptMode :: Mode
-xmPromptMode = mode "prompt" $ \_ -> M.fromList []
 
-xmSearchMode :: Mode
-xmSearchMode = mode "search" $ \_ -> M.fromList []
 
-mapModAndModShift :: [KeySym] -> [KeyPair]
-mapModAndModShift kps = map2 kps (modm, ) (modShift, )
+defaultKeyPairs       = mapKeys
+    where mapKeys xs  = mapMod xs  ++ mapModShift xs
+          mapMod      = fmap (modm, )
+          mapModShift = fmap (modShift, )
+          -- extraKeys   = [
+          --
+
 
 main :: IO()
 main =
     xmonad
+    . xmModal
     . ewmh
     . ewmhFullscreen
     . docks
-    . modal xmModes
-    . withSB xmobar
+    . withSB (xmobarBot <> xmobarTop)
     $ def
         { terminal = term
         , borderWidth = 2
@@ -310,27 +207,23 @@ main =
         , focusedBorderColor = gray
         , layoutHook = xmLayoutHook
         , logHook = xmLogHook
-        , manageHook = xmManageHook <+> manageSpawn <+> manageHook def
-        -- , manageHook = xmManageHook <+> manageHook def
+        , manageHook = xmManageHook <+> manageHook def
         , handleEventHook = xmEventHook
         , startupHook = xmStartupHook
         , focusFollowsMouse = False
         , clickJustFocuses = True
         }
-    `removeKeys`
-        mapModAndModShift
-            [xK_a .. xK_z]
-        ++
-        mapModAndModShift
+    `removeKeys` defaultKeyPairs
+            ( [xK_a .. xK_z]
+            ++
             [xK_1 .. xK_9]
-        ++
-        mapModAndModShift
+            ++
             [ xK_Return
             , xK_comma
             , xK_period
             , xK_slash
             , xK_space
-            ]
+            ] )
     `additionalKeys`
         -- Mod+hjkl: vi-style switch focused window
         [ ((modm, xK_h),             sendMessage $ Go L)
@@ -347,7 +240,6 @@ main =
         -- Alt+Tab, Alt+Shift+Tab: cycle through focused windows
         , ((alt, xK_Tab),            windows W.focusUp)
         , ((altShift, xK_Tab),       windows W.focusDown)
-
 
         -- Layouts
 
@@ -410,69 +302,87 @@ main =
 
         -- Dynamic Workspaces
 
-        -- Mod+a: create and append new named workspace using prompts
+        -- Mod+a: create and append new named workspace using dmenu
         , ((modm, xK_a),             appendWorkspace')
-        -- ModShift+a:
 
-        -- Mod+r: rename current workspace using prompts
+        -- ModShift+a:
+        , ((modShift, xK_a),         addWorkspace')
+
+        -- Mod+r: rename current workspace using dmenu
         , ((modm, xK_r),             renameWorkspace')
 
-        -- Mod+w: select or create workspace using prompts
+        -- Mod+w: select or create workspace using dmenu
         , ((modm, xK_w),             selectWorkspace')
 
-        -- ModShift+w: move focused window to new workspace using prompts
-        , ((modShift, xK_w),         shiftWorkspace')
+        -- ModShift+w: move focused window to new workspace using dmenu
+        , ((modShift, xK_w),         shiftWorkspace)
 
-        -- ModCtrl+w: copy focused window to new workspace using prompts
-        , ((modCtrl, xK_w),          copyWorkspace')
+        -- ModCtrl+w: copy focused window to new workspace using dmenu
+        , ((modCtrl, xK_w),          copyWorkspace)
 
-        -- ModShift+BackSpace, delete the current workspace
-        , ((modShift, xK_BackSpace), removeWorkspace)
+        -- Mod+BackSpace, delete the current workspace
+        , ((modm, xK_BackSpace),     removeWorkspace)
+        -- ModShift+BackSpace, delete workspace selected from dmenu
+
+        -- Program Killers
+
+        -- Mod+q: kill the focused window
+        , ((modm, xK_q),             kill)
 
         -- Program Launchers
-
-        , ((modm, xK_q),             kill)
 
         , ((modm, xK_d),             dmenuRun)
 
         , ((modm, xK_c),             gsLaunchDotfiles)
         , ((modm, xK_m),             gsLaunchBookmarks)
         , ((modm, xK_o),             gsLaunchApps)
-        , ((modm, xK_z),             zshShellPrompt)
-        , ((modm, xK_x),             xmonadCmdPrompt)
+        -- gridselect search instead?
 
+        , ((modm, xK_b),             spawn browser)
         , ((modm, xK_f),             runInShell "ranger")
-        , ((modm, xK_b),             spawn "browser")
 
         , ((modm,     xK_Return),    runInShell "")
         , ((modShift, xK_Return),    runInShell "'cf ~'")
         , ((modAlt,   xK_Return),    runInShell "'cf /'")
         , ((modCtrl,  xK_Return),    runInShell "'rcd'")
 
-        -- , ((modShift, xK_c),         recompileXmonad)
-        -- , ((modShift, xK_q),         restartXmonad)
-
         -- Set defined XMonad modes
         , ((modShift, xK_x),         setMode "exit")
         , ((modShift, xK_r),         setMode "resize")
         , ((modShift, xK_p),         setMode "prompt")
         , ((modShift, xK_s),         setMode "search")
+        , ((modShift, xK_g),         setMode "gaps")
 
         -- MISC
-        --
+
         -- TODO add screen recording with ffmpeg?
-        --
+
         -- Insert: paste xselection
         , ((noMod, xK_Insert),       pasteSelection)
+
         -- PrintScreen: take a screenshot of entire screen
-        , ((noMod, xK_Print),        unGrab *> screenshotCopy FullScreen)
+        , ((noMod, xK_Print),        unGrab *> (spawn . ssCopy $ Fullscreen))
+
         -- Mod+PrintScreen: take a screenshot of focused window only
-        , ((modm, xK_Print),         unGrab *> screenshotCopy FocusedWindow)
+        , ((modm, xK_Print),         unGrab *> (spawn . ssCopy $ Focused))
+
         -- ModShift+PrintScreen: select a window to take a screenshot of
-        , ((modShift, xK_Print),     unGrab *> screenshotCopy SelectedWindow)
+        , ((modShift, xK_Print),     unGrab *> (spawn . ssCopy $ Selected))
+
+        , ((noMod, f86AudioNext),    spawn "playerctl next")
+        , ((noMod, f86AudioPrev),    spawn "playerctl previous")
+        , ((noMod, f86AudioPlay),    spawn "playerctl play-pause")
+        , ((noMod, f86AudioMute),    spawn "pulseaudio-ctl mute")
+        , ((noMod, f86AudioLower),   spawn "pulseaudio-ctl down")
+        , ((noMod, f86AudioRaise),   spawn "pulseaudio-ctl up")
         ]
         ++
         [ ((m .|. modm, k), windows $ f i)
         | (i, k) <- zip xmWS [xK_1 .. xK_9]
-        , (f, m) <- [(W.greedyView, 0), (W.shift, shift)]
+        , (f, m) <- [(W.greedyView, noMod), (W.shift, shift)]
         ]
+        -- ++
+        -- [ ((m .|. modm, k), sendMessage $ f d)
+        -- | (i, k) <- zip [xK_h, xK_j, xK_k, xK_l] [L, D, U, R]
+        -- , (f, m) <- [(Go d, noMod), (Swap d, shift)]
+        -- ]

@@ -4,8 +4,8 @@
 {-# OPTIONS_GHC -Wno-missing-signatures #-}
 {-# LANGUAGE GADTs #-}
 
-module XMonad.Config.Layout
-    (xmLayoutHook
+module Config.Layouts
+    ( xmLayoutHook
     , toggleTabs
     , toggleFull
     , toggleMagnify

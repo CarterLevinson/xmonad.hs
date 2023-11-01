@@ -1,74 +1,80 @@
-#!/usr/bin/sh -eu
+#!/bin/bash -eu
 
-# xmonad source code directory
-SRC="$HOME/.xmonad"
+function find-newest() {
+  find "$1" -name "*" -print0 | \
+    xargs   -r 0 ls -1 -t | \
+    head    -n 1
+}
 
-# installation directory
-DST="$HOME/bin"
-
-# ghc version
-GHC="9.6.3"
-
-# cabal version
-CBL="3.10.1.0"
-
-# real path of installed xmonad
-XMW=$(realpath "$(which xmonad)")
-# XMW="$(which xmonad)"
-
-# output name
-OUT="$SRC/xmonad-$(uname -m)-linux"
-
-# error code
+# set the error code
 ERR=0
-
-if test "$#" -gt 1; then
+if [[ "$#" -gt 1 ]]; then
   ERR=1
-  >&2 echo "ERROR: too many arguments"
+  >&2 echo "USAGE: $0 | $0 build-cache-file"
   exit "$ERR"
 fi
 
-if ! test -d "$SRC"; then
+# set xmonad source code directory
+SRC="$HOME/.xmonad"
+if [[ ! -d "$SRC" ]]; then
   ERR=1
   >&2 echo "ERROR: $SRC is not a valid directory"
   exit "$ERR"
 fi
 
-if ! test -d "$DST"; then
+# set the installation directory
+DST="$HOME/bin"
+if [[ ! -d "$DST" ]]; then
   ERR=1
   >&2 echo "ERROR: $DST is not a valid directory"
   exit "$ERR"
 fi
 
-if test "$#" -eq 1; then
-  OUT="$1"
+# set the cabal version
+CBL="3.10.1.0"
+if ! ghcup whereis cabal "$CBL"; then
+  ERR="$?"
+  >&2 echo "ERROR: ghcup cannot find cabal version $CBL"
+  exit "$ERR"
 fi
 
-if test -z "$XMW" || test "$SRC/xmonad.hs" -nt "$XMW"; then
-  ghcup -c run --ghc "$GHC" --cabal "$CBL" -- cabal install config \
+# set the cache file
+if [[ "$#" -eq 1 ]]; then
+  OUT="$1"
+else
+  OUT="$SRC/xmonad-$(uname -m)-linux"
+fi
+
+FLG=$(find-newest "$SRC/lib")
+
+if [[ "$SRC/Main.hs" -nt "$FLG" ]]; then
+  FLG="$SRC/Main.hs"
+fi
+
+if [[ "$FLG" -nt $(realpath $(which xmonad)) ]]; then
+  ghcup -c run --cabal "$CBL" -- cabal install config \
     --enable-executable-stripping \
     --enable-optimization=2 \
     --overwrite-policy=always \
     --installdir="$DST"
+  ERR="$?"
 fi
 
-if test "$ERR" -ne 0; then
-  >&2 echo "ERROR: build failure"
+if [[ "$ERR" -ne 0 ]]; then
+  >&2 echo "ERROR: cabal build failure"
   exit "$ERR"
 fi
 
 ln -sf "$DST/xmonad" "$SRC/xmonad"
-if test "$?" -ne 0; then
+if [[ "$?" -ne 0 ]]; then
   ERR="$?"
-  >&2 echo "ERROR: link failure"
-  exit "$ERR"
+  >&2 echo "ERROR: failed to link executable $DST/xmonad"
 fi
 
 ln -sf "$SRC/xmonad" "$OUT"
-if test "$?" -ne 0; then
+if [[ "$?" -ne 0 ]]; then
   ERR="$?"
-  >&2 echo "ERROR: link  failure"
-  exit "$ERR"
+  >&2 echo "ERROR: failed to link cached build $SRC/$OUT"
 fi
 
 exit $ERR

@@ -1,16 +1,17 @@
-module XMonad.Config.Action
+module Config.Grids
     ( gsLaunchDotfiles
     , gsLaunchApps
     , gsLaunchBookmarks
     )
     where
 
-import XMonad.Actions.GridSelect as GS
-import XMonad.Core
+import           Config.Data
+import           Config.Static
+import           Config.Utils
 
-import XMonad.Config.Static
-import XMonad.Config.Data
-import XMonad.Config.Util
+import           XMonad.Actions.GridSelect as GS
+import           XMonad.Core
+
 
 makeGrid :: Grid -> (String -> String) -> Grid
 makeGrid grid f =
@@ -34,14 +35,10 @@ gsLaunchApps = spawnSelected' $ cliGrid ++ guiGrid
         guiGrid = guiCells
 
 gsFont :: Font
-gsFont = makeFontString XFTFont
-    { family = "Anonymous Pro"
-    , size   = 18
-    , slant  = Roman
-    , weight = Bold
+gsFont = makeFontString firaCode
+    { size    = 18.0
+    , slant   = Roman
     , spacing = Proportional
-    , hinting = True
-    , antialias = True
     }
 
 spawnSelected' :: Grid -> X()

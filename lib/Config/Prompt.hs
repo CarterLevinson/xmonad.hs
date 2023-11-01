@@ -1,4 +1,4 @@
-module XMonad.Config.Prompt
+module Config.Prompt
     ( centerPrompt
     , bottomPrompt
     , topPrompt
@@ -10,9 +10,9 @@ module XMonad.Config.Prompt
 
 import           XMonad.Core
 
-import           XMonad.Config.Data
-import           XMonad.Config.Static
-import           XMonad.Config.Util
+import           Config.Data
+import           Config.Static
+import           Config.Utils
 
 import           XMonad.Prompt           as P
 
@@ -30,18 +30,19 @@ import           XMonad.Prompt.Zsh
 
 promptFont :: Font
 promptFont = makeFontString XFTFont
-    { family    = "Anonymous Pro"
-    -- { family    = "Fira Code"
-    , size      = 24
+    -- { family    = "Anonymous Pro"
+    { family    = "Fira Code"
+    , size      = 18
     , slant     = Roman
     , weight    = Bold
-    , spacing   = Proportional
+    -- , spacing   = Proportional
+    , spacing   = Mono
     , hinting   = True
     , antialias = True
     }
 
 promptConfig :: XPConfig
-promptConfig = def
+promptConfig = P.def
     { font              = promptFont
     , bgColor           = black
     , fgColor           = purple
