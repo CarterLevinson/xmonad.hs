@@ -1,78 +1,101 @@
-module Config.Workspaces
-    ( appendWorkspace'
-    , addWorkspace'
-    , selectWorkspace'
-    , renameWorkspace'
-    , removeWorkspace'
-    , withWorkspace'
-    , shiftWorkspace
-    , copyWorkspace
-    , removeWorkspace
-    ) where
+module Config.Workspaces (
+    appendWorkspace',
+    addWorkspace',
+    selectWorkspace',
+    renameWorkspace',
+    removeWorkspace',
+    withWorkspace',
+    shiftWorkspace,
+    copyWorkspace,
+    getTagSortedWS,
+    getFirstWS,
+) where
 
-import           Config.Utils
+import Config.Utils
 
-import           XMonad                           (gets)
-import           XMonad.Core                      (WorkspaceId, X, windowset)
-import           XMonad.Operations                (windows)
+import Control.Monad (when)
+import Control.Monad.State (gets)
 
-import qualified XMonad.StackSet                  as W
+import XMonad.Core (
+    WorkspaceId,
+    X,
+    windowset,
+ )
+import XMonad.Operations (windows)
+import qualified XMonad.StackSet as W
+
+import XMonad.Actions.CopyWindow (copy)
+import qualified XMonad.Actions.DynamicWorkspaceOrder as DO
 import qualified XMonad.Actions.DynamicWorkspaces as DW
 
-import           XMonad.Actions.CopyWindow        (copy)
-
-import           XMonad.Util.WorkspaceCompare     (getSortByIndex)
+-- import           XMonad.Util.WorkspaceCompare         (getSortByIndex)
 
 -- import qualified XMonad.Util.Dmenu as D
 
 getTagSortedWS :: X [WorkspaceId]
 getTagSortedWS = do
-    ws   <- gets (W.workspaces . windowset)
-    sort <- getSortByIndex
+    ws <- gets (W.workspaces . windowset)
+    sort <- DO.getSortByOrder
     return (map W.tag $ sort ws)
 
+getFirstWS :: X WorkspaceId
+getFirstWS = head <$> getTagSortedWS
+
 dmenuWorkspace :: String -> X WorkspaceId
-dmenuWorkspace prompt = getTagSortedWS
-    >>= dmenu prompt
+dmenuWorkspace prompt = getTagSortedWS >>= dmenu prompt
+
+whenNotEmpty :: (String -> X ()) -> String -> X ()
+whenNotEmpty f s = when (s /= "") $ f s
 
 selectWorkspace' :: X ()
 selectWorkspace' = do
     choice <- dmenuWorkspace "Which workspace, Master?"
-    set    <- gets windowset
-    if not $ W.tagMember choice set
-       then DW.addWorkspace choice
-       else windows $ W.greedyView choice
+    set <- gets windowset
+    if W.tagMember choice set
+        then windows $ W.greedyView choice
+        else whenNotEmpty DW.addWorkspace choice
 
 appendWorkspace' :: X ()
-appendWorkspace' = dmenuWorkspace "Append WS :>"
-    >>= DW.appendWorkspace
+appendWorkspace' =
+    dmenuWorkspace "Append workspace: "
+        >>= whenNotEmpty DW.appendWorkspace
+
+-- >>= DW.appendWorkspace
 
 addWorkspace' :: X ()
-addWorkspace' = dmenuWorkspace "Add WS :>"
-    >>= DW.addWorkspace
+addWorkspace' =
+    dmenuWorkspace "Add workspace: "
+        >>= whenNotEmpty DW.addWorkspace
 
 renameWorkspace' :: X ()
-renameWorkspace' = dmenu "Rename WS :>" []
-    >>= DW.renameWorkspaceByName
+renameWorkspace' =
+    dmenu "Rename workspace: " []
+        >>= whenNotEmpty DW.renameWorkspaceByName
 
 removeWorkspace' :: X ()
-removeWorkspace' = dmenuWorkspace "Delete a workspace :>"
-    >>= DW.removeWorkspaceByTag
+removeWorkspace' =
+    dmenuWorkspace "Delete a workspace :>"
+        >>= DW.removeWorkspaceByTag
 
 withWorkspace' :: String -> (String -> X ()) -> X ()
 withWorkspace' prompt job = do
-     ts <- getTagSortedWS
-     let job' t | t `elem` ts = job t
-                | otherwise = DW.addHiddenWorkspace t >> job t
-     dmenu prompt ts >>= job'
+    ts <- getTagSortedWS
+    let job' t
+            | t `elem` ts = job t
+            | otherwise = DW.addHiddenWorkspace t >> job t
+    dmenu prompt ts >>= whenNotEmpty job'
 
 shiftWorkspace :: X ()
-shiftWorkspace = withWorkspace' "Which window to move, Master?"
-    (windows . W.shift)
+shiftWorkspace =
+    withWorkspace'
+        "Move focused workspace to which window, Master?"
+        (windows . W.shift)
 
 copyWorkspace :: X ()
-copyWorkspace = withWorkspace' "Which window to copy, Master?"
-    (windows . copy)
+copyWorkspace =
+    withWorkspace'
+        "Which window to copy, Master?"
+        (windows . copy)
 
-removeWorkspace :: X ()
-removeWorkspace = DW.removeWorkspace
+-- removeWorkspace :: X ()
+-- removeWorkspace = DW.removeWorkspace

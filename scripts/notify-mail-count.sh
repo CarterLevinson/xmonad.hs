@@ -12,4 +12,10 @@ if [[ -n "$DISPLAY" ]]; then
     dunstify -i emblem-mail "New Emails" \
       "You have $posteo unread messages in your posteo inbox"
   fi
+
+  workspace=$(find "$HOME/mail/workspace/Inbox/new" -type | wc -l)
+  if [[ "$workspace" -ne 0 ]]; then
+    dunstify -i emblem-mail "New Emails" \
+      "You have $workspace unread messages in your workspace inbox"
+  fi
 fi

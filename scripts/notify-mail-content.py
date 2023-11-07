@@ -44,4 +44,4 @@ for path in maildir.rglob("Inbox/new/*"):
     subj = f"Subject: {subject}\n"
     send = f"From: {sender}\n"
     recv = f"To: {reciever}\n"
-    run(["dunstify", "-i", "mail-message-new", "Email recieved", subj + send + recv])
+    run(["notify-send", "-i", "mail-message-new", "Email recieved", subj + send + recv])

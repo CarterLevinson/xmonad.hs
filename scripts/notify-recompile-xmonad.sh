@@ -10,17 +10,17 @@ if [[ -n "$DISPLAY" ]]; then
     "Starting recompilation and reinstallation of XMonad."
 fi
 
-# recompile xmonad
 xmonad --recompile
-# set the error code
-ERR="$?"
 
-# XMonad will launch xmessage with build errors in case of failure
-if [[ -n "$DISPLAY" && "$ERR" -eq 0  ]]; then
-  dunstify -a "xmonad" \
+if [[ "$?" -eq 0 ]]; then
+    dunstify -a "xmonad" \
+      "Recompiling XMonad" \
+      "XMonad recompilation successful. Installed to '~/bin'."
+    touch "$(realpath $(which xmonad))"
+  exit 0
+else
+  dunstify -a "xmonad" -u "CRITICAL" \
     "Recompiling XMonad" \
-    "XMonad recompilation successful. Installed to '~/bin'"
+    "XMonad recompilation failed with an error code."
+  exit 1
 fi
-
-# exit with same code as xmonad recompile
-exit "$ERR"

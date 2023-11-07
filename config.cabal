@@ -41,23 +41,15 @@ library
                     language
   hs-source-dirs:   lib
   exposed-modules:  Config,
-                    Config.Data,
+                    Config.Core,
                     Config.Grids,
                     Config.Utils,
-                    Config.Static,
-                    Config.Hooks,
+                    Config.Modes,
+                    Config.Queries,
                     Config.Layouts,
+                    Config.StatusBars,
                     Config.Workspaces
   build-depends:    containers,
                     text,
                     mtl,
                     X11
-
--- test-suite test
---   import:           dependencies,
---                     warnings,
---                     language
---   hs-source-dirs:   test
---   type:             exitcode-stdio-1.0
---   main-is:          Test.hs
---   build-depends:    config

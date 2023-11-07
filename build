@@ -31,7 +31,7 @@ if [[ ! -d "$DST" ]]; then
 fi
 
 # set the cabal version
-CBL="3.10.1.0"
+CBL="3.10.2.0"
 if ! ghcup whereis cabal "$CBL"; then
   ERR="$?"
   >&2 echo "ERROR: ghcup cannot find cabal version $CBL"
